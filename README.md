@@ -92,13 +92,15 @@ same artifacts using prefix.dev OIDC trusted publishing:
 - Owner/repository: `gbionics/gb-conda-forge-staging-recipes`
 - Workflow file: `build-pkgs.yml`
 - GitHub environment: `production`
-- Channel: `@gbionics/conda-forge-staging`
+- Channel (CLI/API reference): `gbionics/conda-forge-staging`
 - Access: read/write, all packages
 
 Configure a prefix.dev OIDC trusted publisher for the repository, workflow,
 `production` environment, and staging channel listed above. No API key secret is
-needed. PR build jobs have no OIDC write permission and never publish. Manual
-main-branch runs can publish too. Existing identical artifacts are skipped;
+needed. Upload commands use the canonical channel reference without a leading
+`@`; that prefix is only used in website routes. PR build jobs have no OIDC write
+permission and never publish. Manual main-branch runs can publish too. Existing
+identical artifacts are skipped;
 increment a recipe's build number when changing its packaging without changing
 its version.
 

@@ -18,6 +18,6 @@ packages = sorted(
 if not packages:
     raise SystemExit('No packages to upload.')
 subprocess.run([
-    'rattler-build', 'upload', 'prefix', '--channel', '@gbionics/conda-forge-staging',
+    'rattler-build', 'upload', 'prefix', '--channel', 'gbionics/conda-forge-staging',
     '--skip-existing', *map(str, packages),
 ], check=True)
