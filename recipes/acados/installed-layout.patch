@@ -1,0 +1,207 @@
+--- a/interfaces/acados_template/acados_template/utils.py
++++ b/interfaces/acados_template/acados_template/utils.py
+@@ -76,24 +76,12 @@
+     return
+ 
+ def get_acados_path():
+-    ACADOS_PATH = os.environ.get('ACADOS_SOURCE_DIR')
+-    if not ACADOS_PATH:
+-        acados_template_path = os.path.dirname(os.path.abspath(__file__))
+-        acados_path = os.path.join(acados_template_path, '..','..','..')
+-        ACADOS_PATH = os.path.realpath(acados_path)
+-        msg = 'Warning: Did not find environment variable ACADOS_SOURCE_DIR, '
+-        msg += 'guessed ACADOS_PATH to be {}.\n'.format(ACADOS_PATH)
+-        msg += 'Please export ACADOS_SOURCE_DIR to avoid this warning.'
+-        print(msg)
+-    return ACADOS_PATH
++    # sys.prefix follows a relocated conda environment, without activation hooks.
++    return os.environ.get('ACADOS_SOURCE_DIR', sys.prefix)
+ 
+ 
+ def get_python_interface_path():
+-    ACADOS_PYTHON_INTERFACE_PATH = os.environ.get('ACADOS_PYTHON_INTERFACE_PATH')
+-    if not ACADOS_PYTHON_INTERFACE_PATH:
+-        acados_path = get_acados_path()
+-        ACADOS_PYTHON_INTERFACE_PATH = os.path.join(acados_path, 'interfaces', 'acados_template', 'acados_template')
+-    return ACADOS_PYTHON_INTERFACE_PATH
++    return os.environ.get('ACADOS_PYTHON_INTERFACE_PATH', os.path.dirname(os.path.abspath(__file__)))
+ 
+ 
+ def get_tera_exec_path():
+@@ -308,70 +296,13 @@
+ 
+ 
+ def get_tera(tera_version: Optional[str] = None, force_download = None) -> str:
+-    if force_download is not None:
+-        warnings.warn("get_tera: force_download is deprecated in 0.5.6. Do not pass the option. Now, this function checks if it is available, otherwise attempts downloading or raises an error.", DeprecationWarning, stacklevel=2)
+-
+-    if tera_version is None:
+-        tera_version = TERA_DEFAULT_VERSION
+     tera_path = get_tera_exec_path()
+-    acados_path = get_acados_path()
+-
+-    # check if tera exists, is executable, and has a sufficient version
+-    if os.path.exists(tera_path) and os.access(tera_path, os.X_OK):
+-        if is_tera_version_sufficient(tera_path, tera_version):
+-            return tera_path
+-        else:
+-            print(f"\nt_renderer found at {tera_path} but its version does not meet the "
+-                    f"minimum requirement (>= v{tera_version}). Updating automatically...")
+-
+-    try:
+-        arch = get_architecture_amd64_arm64()
+-    except RuntimeError as e:
+-        raise RuntimeError(
+-            f"{e}\nTry building tera_renderer from source at https://github.com/acados/tera_renderer"
+-        ) from e
+-
+-    binary_ext = get_binary_ext()
+-    repo_url = "https://github.com/acados/tera_renderer/releases"
+-    url = "{}/download/v{}/t_renderer-v{}-{}-{}{}".format(
+-        repo_url, tera_version, tera_version, PLATFORM2TERA[sys.platform], arch, binary_ext)
+-
+-    manual_install = 'For manual installation follow these instructions:\n'
+-    manual_install += '1 Download binaries from {}\n'.format(url)
+-    manual_install += '2 Copy them in {}/bin\n'.format(acados_path)
+-    manual_install += '3 Strip the version and platform and architecture from the binaries: '
+-    manual_install += f'as t_renderer-v{tera_version}-P-A{binary_ext} -> t_renderer{binary_ext})\n'
+-    manual_install += '4 Enable execution privilege on the file "t_renderer" with:\n'
+-    manual_install += '"chmod +x {}"\n\n'.format(tera_path)
+-
+-    try:
+-        print("Setting up tera renderer")
+-        # check if parent directory exists otherwise create it
+-        tera_dir = os.path.split(tera_path)[0]
+-        if not os.path.exists(tera_dir):
+-            print(f"Creating directory {tera_dir}")
+-            os.makedirs(tera_dir)
+-
+-        # Download tera
+-        print(f"Downloading {url}")
+-        with urllib.request.urlopen(url, timeout=60) as response, open(tera_path, 'wb') as out_file:
+-            shutil.copyfileobj(response, out_file)
+-        print("Successfully downloaded t_renderer.")
+-        # make executable
+-        os.chmod(tera_path, 0o755)
+-        print("Successfully made t_renderer executable.")
+-    except Exception as e:
+-        msg = "\n"
+-        msg += 'Tera renderer executable not found, '
+-        msg += 'while looking in path:\n{}\n'.format(tera_path)
+-        msg += 'In order to be able to render the templates, '
+-        msg += 'you need to download the tera renderer binaries from:\n'
+-        msg += '{}\n\n'.format(repo_url)
+-        msg += '\nAutomatic installation failed with: {}\n\n'.format(e)
+-        msg += manual_install
+-        raise RuntimeError(msg) from e
+-
+-    return tera_path
++    required = tera_version or TERA_DEFAULT_VERSION
++    if (os.path.isfile(tera_path) and os.access(tera_path, os.X_OK)
++            and is_tera_version_sufficient(tera_path, required)):
++        return tera_path
++    raise RuntimeError(f"Install tera-renderer >= {required} in the environment; "
++                       f"no suitable renderer at {tera_path}. Automatic downloads are disabled.")
+ 
+ 
+ def render_template(in_file, out_file, output_dir, json_path, template_glob=None):
+--- a/interfaces/acados_template/acados_template/c_templates_tera/multi_Makefile.in
++++ b/interfaces/acados_template/acados_template/c_templates_tera/multi_Makefile.in
+@@ -304,7 +304,7 @@
+  {%- endif %}
+ 
+ # define the c-compiler flags for make's implicit rules
+-CFLAGS = -fPIC -std=c99 {{ openmp_flag }} {{ code_gen_options.ext_fun_compile_flags }}#-fno-diagnostics-show-line-numbers -g
++CFLAGS += -fPIC -std=c99 {{ openmp_flag }} {{ code_gen_options.ext_fun_compile_flags }}#-fno-diagnostics-show-line-numbers -g
+ {% if solver_options.with_batch_functionality %}
+ CFLAGS += -fopenmp
+ {%- endif %}
+--- a/interfaces/acados_template/acados_template/c_templates_tera/Makefile.in
++++ b/interfaces/acados_template/acados_template/c_templates_tera/Makefile.in
+@@ -176,7 +176,7 @@
+ 
+ {# c-compiler flags #}
+ # define the c-compiler flags for make's implicit rules
+-CFLAGS = -fPIC -std=c99 {{ openmp_flag }} {{ code_gen_options.ext_fun_compile_flags }}
++CFLAGS += -fPIC -std=c99 {{ openmp_flag }} {{ code_gen_options.ext_fun_compile_flags }}
+ {% if solver_options.with_batch_functionality %}
+ CFLAGS += -fopenmp
+ {%- endif %}
+--- a/interfaces/acados_template/acados_template/acados_code_gen_options.py
++++ b/interfaces/acados_template/acados_template/acados_code_gen_options.py
+@@ -38,12 +38,13 @@
+ import numpy as np
+ from typing import Dict
+ 
+-from .utils import get_shared_lib_ext, get_acados_path, get_os_str
++from .utils import get_shared_lib_ext, get_acados_path, get_os_str, get_python_interface_path
+ from sysconfig import get_paths
+ 
+ class AcadosCodeGenOptions:
+     def __init__(self) -> None:
+         acados_path = get_acados_path()
++        self.__acados_python_interface_path = get_python_interface_path()
+ 
+         self.__acados_include_path = os.path.join(acados_path, 'include').replace(os.sep, '/')
+         self.__acados_link_libs: Dict[str, str] = {}
+--- a/interfaces/acados_template/acados_template/c_templates_tera/Makefile.in
++++ b/interfaces/acados_template/acados_template/c_templates_tera/Makefile.in
+@@ -252,8 +252,8 @@
+ ocp_cython_c: ocp_shared_lib
+ 	cython \
+ 	-o acados_ocp_solver_pyx.c \
+-	-I $(INCLUDE_PATH)/../interfaces/acados_template/acados_template \
+-	$(INCLUDE_PATH)/../interfaces/acados_template/acados_template/acados_ocp_solver_pyx.pyx \
++	-I {{ code_gen_options.acados_python_interface_path }} \
++	{{ code_gen_options.acados_python_interface_path }}/acados_ocp_solver_pyx.pyx \
+ 	-I {{ code_gen_options.code_export_directory }} \
+ 
+ ocp_cython_o: ocp_cython_c
+@@ -284,8 +284,8 @@
+ sim_cython_c: sim_shared_lib
+ 	cython \
+ 	-o acados_sim_solver_pyx.c \
+-	-I $(INCLUDE_PATH)/../interfaces/acados_template/acados_template \
+-	$(INCLUDE_PATH)/../interfaces/acados_template/acados_template/acados_sim_solver_pyx.pyx \
++	-I {{ code_gen_options.acados_python_interface_path }} \
++	{{ code_gen_options.acados_python_interface_path }}/acados_sim_solver_pyx.pyx \
+ 	-I {{ code_gen_options.code_export_directory }} \
+ 
+ sim_cython_o: sim_cython_c
+--- a/interfaces/acados_template/acados_template/c_templates_tera/multi_Makefile.in
++++ b/interfaces/acados_template/acados_template/c_templates_tera/multi_Makefile.in
+@@ -347,8 +347,8 @@
+ ocp_cython_c: ocp_shared_lib
+ 	cython \
+ 	-o acados_ocp_solver_pyx.c \
+-	-I $(INCLUDE_PATH)/../interfaces/acados_template/acados_template \
+-	$(INCLUDE_PATH)/../interfaces/acados_template/acados_template/acados_ocp_solver_pyx.pyx \
++	-I {{ code_gen_options.acados_python_interface_path }} \
++	{{ code_gen_options.acados_python_interface_path }}/acados_ocp_solver_pyx.pyx \
+ 	-I {{ code_gen_options.code_export_directory }} \
+ 
+ ocp_cython_o: ocp_cython_c
+--- a/interfaces/acados_template/acados_template/c_templates_tera/Makefile.in
++++ b/interfaces/acados_template/acados_template/c_templates_tera/Makefile.in
+@@ -146,6 +146,9 @@
+ 
+ INCLUDE_PATH = {{ code_gen_options.acados_include_path }}
+ LIB_PATH = {{ code_gen_options.acados_lib_path }}
++
++# Preserve environment flags in the explicit Cython compilation rules too.
++ACADOS_FLAGS += $(CPPFLAGS) $(CFLAGS)
+ 
+ # preprocessor flags for make's implicit rules
+ {%- if qp_solver == "FULL_CONDENSING_QPOASES" %}
+--- a/interfaces/acados_template/acados_template/c_templates_tera/multi_Makefile.in
++++ b/interfaces/acados_template/acados_template/c_templates_tera/multi_Makefile.in
+@@ -276,6 +276,9 @@
+ INCLUDE_PATH = {{ code_gen_options.acados_include_path }}
+ LIB_PATH = {{ code_gen_options.acados_lib_path }}
+ 
++# Preserve environment flags in the explicit Cython compilation rules too.
++ACADOS_FLAGS += $(CPPFLAGS) $(CFLAGS)
++
+ # preprocessor flags for make's implicit rules
+ {%- if solver_options.qp_solver == "FULL_CONDENSING_QPOASES" %}
+ CPPFLAGS += -DACADOS_WITH_QPOASES

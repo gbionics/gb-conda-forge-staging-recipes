@@ -1,0 +1,12 @@
+--- a/dense_qp/x_dense_qp_kkt.c
++++ b/dense_qp/x_dense_qp_kkt.c
+@@ -2206,6 +2206,9 @@
+ 	int nv = qp->dim->nv;
+ 	int ne = qp->dim->ne;
+ 
++	// Restore must be safe even when no dependent rows were removed.
++	ws->ne_bkp = ne;
++
+ 	struct STRMAT *A = qp->A;
+ 	struct STRVEC *b = qp->b;
+ 
