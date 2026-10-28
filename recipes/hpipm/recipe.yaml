@@ -1,0 +1,118 @@
+schema_version: 1
+context:
+  version: 0.1.4
+  build_number: 3
+  # Workaround: BLASFEO's x86 variants have different packed-matrix ABIs.
+  # Assuming fewer than 9 builds per version, *_10* and *_30* identify
+  # levels 1 and 3. This should be encoded by a libblasfeo-abi package instead.
+  blasfeo_build: ${{ "*_30*" if x86_64 and (microarch_level | default(1) | int) == 3 else "*_10*" if x86_64 else "*" }}
+recipe:
+  name: hpipm
+  version: ${{ version }}
+source:
+  url: https://github.com/giaf/hpipm/archive/refs/tags/${{ version }}.tar.gz
+  sha256: 1af1041fb6610f5bfcde3e8d8c02731dc52a937e589d65db73e28dcfa8c4cef3
+  patches:
+    - initialize-equality-backup.patch
+build:
+  number: ${{ build_number + (100 if (microarch_level | default(1) | int) == 1 else 300) if x86_64 else build_number }}
+  skip: not linux
+outputs:
+  - staging:
+      name: hpipm-build
+    build:
+      script:
+        file: build.sh
+        env:
+          HPIPM_TARGET: ${{ "AVX" if x86_64 and (microarch_level | default(1) | int) == 3 else "GENERIC" }}
+    requirements:
+      build:
+        - ${{ compiler('c') }}
+        - ${{ stdlib('c') }}
+        - cmake
+        - ninja
+        - if: x86_64
+          then: x86_64-microarch-level ==${{ microarch_level | default(1) }}
+      host:
+        - libblasfeo * ${{ blasfeo_build }}
+        - if: x86_64
+          then: _x86_64-microarch-level ==${{ microarch_level | default(1) }}
+  - package:
+      name: libhpipm
+    inherit: hpipm-build
+    build:
+      files:
+        include:
+          - '**/*'
+        exclude:
+          - include/**
+          - lib/*.a
+          - lib/cmake/**
+          - lib/pkgconfig/**
+          - share/pkgconfig/**
+          - share/doc/**
+          - cmake/**
+    requirements:
+      # pin_compatible currently needs an explicit host solve on staged outputs.
+      host:
+        - libblasfeo * ${{ blasfeo_build }}
+        - if: x86_64
+          then: _x86_64-microarch-level ==${{ microarch_level | default(1) }}
+      run:
+        - ${{ pin_compatible('libblasfeo', upper_bound='x.x.x') }}
+        - libblasfeo * ${{ blasfeo_build }}
+        - if: x86_64
+          then: _x86_64-microarch-level >=${{ microarch_level | default(1) }}
+      run_exports:
+        - ${{ pin_subpackage('libhpipm', upper_bound='x.x.x') }}
+        # Matrix indexing in consumers must match the BLASFEO headers used here.
+        - ${{ pin_compatible('libblasfeo', upper_bound='x.x.x') }}
+        - libblasfeo * ${{ blasfeo_build }}
+    tests:
+      - package_contents:
+          lib:
+            - hpipm
+  - package:
+      name: libhpipm-devel
+    inherit: hpipm-build
+    build:
+      files:
+        include:
+          - include/**
+          - lib/*.a
+          - lib/cmake/**
+          - lib/pkgconfig/**
+          - share/pkgconfig/**
+          - share/doc/**
+          - cmake/**
+    requirements:
+      # pin_compatible currently needs an explicit host solve on staged outputs.
+      host:
+        - libblasfeo * ${{ blasfeo_build }}
+        - if: x86_64
+          then: _x86_64-microarch-level ==${{ microarch_level | default(1) }}
+      run:
+        - ${{ pin_subpackage('libhpipm', exact=True) }}
+      run_exports:
+        - ${{ pin_subpackage('libhpipm', upper_bound='x.x.x') }}
+        # Matrix indexing in consumers must match the BLASFEO headers used here.
+        - ${{ pin_compatible('libblasfeo', upper_bound='x.x.x') }}
+        - libblasfeo * ${{ blasfeo_build }}
+    tests:
+      - package_contents:
+          include: [hpipm_d_ocp_qp.h]
+          files:
+            - cmake/hpipmConfig.cmake
+      - script: cmake-package-check hpipm --targets hpipm
+        requirements:
+          run:
+            - cmake-package-check
+            - ${{ compiler('c') }}
+            - ${{ compiler('cxx') }}
+about:
+  homepage: https://github.com/giaf/hpipm
+  license: BSD-2-Clause
+  license_file: LICENSE.txt
+  summary: High-performance interior-point-method QP and QCQP solvers
+extra:
+  recipe-maintainers: [traversaro]

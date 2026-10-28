@@ -1,0 +1,36 @@
+name: Update dependencies and pinning
+on:
+  schedule:
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.9.4
+        with:
+          locked: true
+      - run: pixi run pinning-update
+      - run: pixi update
+      - run: pixi run test
+      # Build here too: PRs created with GITHUB_TOKEN do not trigger PR workflows.
+      - run: pixi run build
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: automation/update-pinning
+          commit-message: Update conda-forge pinning and packaging tools
+          title: Update conda-forge pinning and packaging tools
+          body: |
+            Update the exact conda-forge pinning release and apply relevant migrations
+            only when dependency feedstocks have finished them. Preserve local overrides.
+            Refresh the Pixi tool lock. All recipes were built and tested by this workflow.
+          add-paths: |
+            pinning.yaml
+            conda_forge_pinnings/conda_build_config.yaml
+            pixi.lock

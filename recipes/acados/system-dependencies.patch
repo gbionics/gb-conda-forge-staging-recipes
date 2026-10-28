@@ -1,0 +1,383 @@
+--- a/external/CMakeLists.txt
++++ b/external/CMakeLists.txt
+@@ -48,6 +48,9 @@
+     add_subdirectory(blasfeo)
+ endif()
+ 
++if(ACADOS_WITH_SYSTEM_HPIPM)
++    find_package(hpipm REQUIRED)
++else()
+ # When HPIPM is used as part of acados
+ if(ACADOS_WITH_SYSTEM_BLASFEO)
+     set(HPIPM_FIND_BLASFEO ON CACHE BOOL "" FORCE)
+@@ -59,6 +62,8 @@
+ set(TARGET ${HPIPM_TARGET} CACHE STRING "Set CPU architecture target" FORCE)
+ set(HPIPM_TESTING OFF CACHE BOOL "Tests disabled" FORCE)
+ add_subdirectory(hpipm)
++
++endif()
+ 
+ if(ACADOS_WITH_HPMPC)
+ 	# TODO: The following definition should go ASAP!
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -96,6 +96,7 @@
+ # Interfaces
+ option(ACADOS_OCTAVE "Octave Interface tests" OFF)
+ # Options to use libraries found via find_package
++option(ACADOS_WITH_SYSTEM_HPIPM "Use installed HPIPM" OFF)
+ option(ACADOS_WITH_SYSTEM_BLASFEO "If ON, use blasfeo found via find_package(blasfeo) instead of compiling it" OFF)
+ mark_as_advanced(ACADOS_WITH_SYSTEM_BLASFEO)
+ if(ACADOS_WITH_SYSTEM_BLASFEO)
+--- a/acados/utils/print.c
++++ b/acados/utils/print.c
+@@ -49,8 +49,8 @@
+ #include "blasfeo_i_aux_ext_dep.h"
+ 
+ // hpipm
+-#include "hpipm/include/hpipm_d_ocp_qp.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_sol.h"
++#include "hpipm_d_ocp_qp.h"
++#include "hpipm_d_ocp_qp_sol.h"
+ 
+ // acados
+ #include "acados/dense_qp/dense_qp_common.h"
+--- a/acados/ocp_qp/ocp_qp_partial_condensing.h
++++ b/acados/ocp_qp/ocp_qp_partial_condensing.h
+@@ -37,7 +37,7 @@
+ #endif
+ 
+ // hpipm
+-#include "hpipm/include/hpipm_d_ocp_qp_red.h"
++#include "hpipm_d_ocp_qp_red.h"
+ // acados
+ #include "acados/ocp_qp/ocp_qp_common.h"
+ 
+--- a/acados/ocp_qp/ocp_qp_partial_condensing.c
++++ b/acados/ocp_qp/ocp_qp_partial_condensing.c
+@@ -37,15 +37,15 @@
+ #include "acados/ocp_qp/ocp_qp_common.h"
+ #include "acados/ocp_qp/ocp_qp_partial_condensing.h"
+ #include "acados/utils/mem.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_red.h"
++#include "hpipm_d_ocp_qp_red.h"
+ // hpipm
+-#include "hpipm/include/hpipm_d_cond.h"
+-#include "hpipm/include/hpipm_d_dense_qp.h"
+-#include "hpipm/include/hpipm_d_dense_qp_sol.h"
+-#include "hpipm/include/hpipm_d_ocp_qp.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_dim.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_sol.h"
+-#include "hpipm/include/hpipm_d_part_cond.h"
++#include "hpipm_d_cond.h"
++#include "hpipm_d_dense_qp.h"
++#include "hpipm_d_dense_qp_sol.h"
++#include "hpipm_d_ocp_qp.h"
++#include "hpipm_d_ocp_qp_dim.h"
++#include "hpipm_d_ocp_qp_sol.h"
++#include "hpipm_d_part_cond.h"
+ #include "acados/utils/timing.h"
+ 
+ 
+--- a/acados/ocp_qp/ocp_qp_hpipm.h
++++ b/acados/ocp_qp/ocp_qp_hpipm.h
+@@ -37,7 +37,7 @@
+ #endif
+ 
+ // hpipm
+-#include "hpipm/include/hpipm_d_ocp_qp_ipm.h"
++#include "hpipm_d_ocp_qp_ipm.h"
+ // acados
+ #include "acados/ocp_qp/ocp_qp_common.h"
+ #include "acados/utils/types.h"
+--- a/acados/ocp_qp/ocp_qp_hpipm.c
++++ b/acados/ocp_qp/ocp_qp_hpipm.c
+@@ -34,13 +34,13 @@
+ #include <assert.h>
+ #include <string.h>
+ // hpipm
+-#include "hpipm/include/hpipm_d_ocp_qp.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_ipm.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_sol.h"
+-#include "hpipm/include/hpipm_common.h"
++#include "hpipm_d_ocp_qp.h"
++#include "hpipm_d_ocp_qp_ipm.h"
++#include "hpipm_d_ocp_qp_sol.h"
++#include "hpipm_common.h"
+ 
+ // uncomment to codegen QP
+-// #include "hpipm/include/hpipm_d_ocp_qp_utils.h"
++// #include "hpipm_d_ocp_qp_utils.h"
+ 
+ // acados
+ #include "acados/ocp_qp/ocp_qp_common.h"
+--- a/acados/ocp_qp/ocp_qp_full_condensing.h
++++ b/acados/ocp_qp/ocp_qp_full_condensing.h
+@@ -37,7 +37,7 @@
+ #endif
+ 
+ // hpipm
+-#include "hpipm/include/hpipm_d_ocp_qp_red.h"
++#include "hpipm_d_ocp_qp_red.h"
+ // acados
+ #include "acados/dense_qp/dense_qp_common.h"
+ #include "acados/ocp_qp/ocp_qp_common.h"
+--- a/acados/ocp_qp/ocp_qp_full_condensing.c
++++ b/acados/ocp_qp/ocp_qp_full_condensing.c
+@@ -34,13 +34,13 @@
+ #include <assert.h>
+ #include <string.h>
+ // hpipm
+-#include "hpipm/include/hpipm_d_cond.h"
+-#include "hpipm/include/hpipm_d_dense_qp.h"
+-#include "hpipm/include/hpipm_d_dense_qp_ipm.h"
+-#include "hpipm/include/hpipm_d_dense_qp_sol.h"
+-#include "hpipm/include/hpipm_d_ocp_qp.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_sol.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_red.h"
++#include "hpipm_d_cond.h"
++#include "hpipm_d_dense_qp.h"
++#include "hpipm_d_dense_qp_ipm.h"
++#include "hpipm_d_dense_qp_sol.h"
++#include "hpipm_d_ocp_qp.h"
++#include "hpipm_d_ocp_qp_sol.h"
++#include "hpipm_d_ocp_qp_red.h"
+ // acados
+ #include "acados/dense_qp/dense_qp_common.h"
+ #include "acados/ocp_qp/ocp_qp_common.h"
+--- a/acados/ocp_qp/ocp_qp_common_frontend.c
++++ b/acados/ocp_qp/ocp_qp_common_frontend.c
+@@ -38,8 +38,8 @@
+ #include "blasfeo_d_aux.h"
+ 
+ // hpipm
+-// #include "hpipm/include/hpipm_d_ocp_qp.h"
+-// #include "hpipm/include/hpipm_d_ocp_qp_sol.h"
++// #include "hpipm_d_ocp_qp.h"
++// #include "hpipm_d_ocp_qp_sol.h"
+ // acados
+ #include "acados/ocp_qp/ocp_qp_common.h"
+ #include "acados/ocp_qp/ocp_qp_common_frontend.h"
+--- a/acados/ocp_qp/ocp_qp_common.h
++++ b/acados/ocp_qp/ocp_qp_common.h
+@@ -37,10 +37,10 @@
+ #endif
+ 
+ // hpipm
+-#include "hpipm/include/hpipm_d_ocp_qp.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_dim.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_res.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_sol.h"
++#include "hpipm_d_ocp_qp.h"
++#include "hpipm_d_ocp_qp_dim.h"
++#include "hpipm_d_ocp_qp_res.h"
++#include "hpipm_d_ocp_qp_sol.h"
+ // acados
+ #include "acados/utils/types.h"
+ 
+--- a/acados/ocp_qp/ocp_qp_common.c
++++ b/acados/ocp_qp/ocp_qp_common.c
+@@ -40,12 +40,12 @@
+ #include "blasfeo_d_blas.h"
+ 
+ // hpipm
+-#include "hpipm/include/hpipm_d_ocp_qp.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_dim.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_ipm.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_kkt.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_res.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_sol.h"
++#include "hpipm_d_ocp_qp.h"
++#include "hpipm_d_ocp_qp_dim.h"
++#include "hpipm_d_ocp_qp_ipm.h"
++#include "hpipm_d_ocp_qp_kkt.h"
++#include "hpipm_d_ocp_qp_res.h"
++#include "hpipm_d_ocp_qp_sol.h"
+ 
+ // acados
+ #include "acados/ocp_qp/ocp_qp_common.h"
+--- a/acados/ocp_nlp/ocp_nlp_sqp_with_feasible_qp.c
++++ b/acados/ocp_nlp/ocp_nlp_sqp_with_feasible_qp.c
+@@ -42,9 +42,9 @@
+ #endif
+ 
+ // blasfeo
+-#include "blasfeo/include/blasfeo_d_aux.h"
+-#include "blasfeo/include/blasfeo_d_aux_ext_dep.h"
+-#include "blasfeo/include/blasfeo_d_blas.h"
++#include "blasfeo_d_aux.h"
++#include "blasfeo_d_aux_ext_dep.h"
++#include "blasfeo_d_blas.h"
+ 
+ // acados
+ #include "acados/ocp_nlp/ocp_nlp_common.h"
+--- a/acados/ocp_nlp/ocp_nlp_common.c
++++ b/acados/ocp_nlp/ocp_nlp_common.c
+@@ -40,9 +40,9 @@
+ #include "blasfeo_common.h"
+ #include "blasfeo_d_blas.h"
+ // hpipm
+-#include "hpipm/include/hpipm_d_ocp_qp_dim.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_res.h"
+-#include "hpipm/include/hpipm_d_ocp_qp_seed.h"
++#include "hpipm_d_ocp_qp_dim.h"
++#include "hpipm_d_ocp_qp_res.h"
++#include "hpipm_d_ocp_qp_seed.h"
+ // acados
+ #include "acados/utils/mem.h"
+ #include "acados/utils/print.h"
+--- a/acados/dense_qp/dense_qp_hpipm.h
++++ b/acados/dense_qp/dense_qp_hpipm.h
+@@ -37,9 +37,9 @@
+ #endif
+ 
+ // hpipm
+-#include "hpipm/include/hpipm_d_dense_qp.h"
+-#include "hpipm/include/hpipm_d_dense_qp_ipm.h"
+-#include "hpipm/include/hpipm_d_dense_qp_sol.h"
++#include "hpipm_d_dense_qp.h"
++#include "hpipm_d_dense_qp_ipm.h"
++#include "hpipm_d_dense_qp_sol.h"
+ // acados
+ #include "acados/dense_qp/dense_qp_common.h"
+ #include "acados/utils/types.h"
+--- a/acados/dense_qp/dense_qp_hpipm.c
++++ b/acados/dense_qp/dense_qp_hpipm.c
+@@ -34,10 +34,10 @@
+ #include <assert.h>
+ #include <string.h>
+ // hpipm
+-#include "hpipm/include/hpipm_d_dense_qp.h"
+-#include "hpipm/include/hpipm_d_dense_qp_ipm.h"
+-#include "hpipm/include/hpipm_d_dense_qp_sol.h"
+-#include "hpipm/include/hpipm_common.h"
++#include "hpipm_d_dense_qp.h"
++#include "hpipm_d_dense_qp_ipm.h"
++#include "hpipm_d_dense_qp_sol.h"
++#include "hpipm_common.h"
+ // acados
+ #include "acados/dense_qp/dense_qp_common.h"
+ #include "acados/dense_qp/dense_qp_hpipm.h"
+--- a/acados/dense_qp/dense_qp_common.h
++++ b/acados/dense_qp/dense_qp_common.h
+@@ -37,9 +37,9 @@
+ #endif
+ 
+ // hpipm
+-#include "hpipm/include/hpipm_d_dense_qp.h"
+-#include "hpipm/include/hpipm_d_dense_qp_res.h"
+-#include "hpipm/include/hpipm_d_dense_qp_sol.h"
++#include "hpipm_d_dense_qp.h"
++#include "hpipm_d_dense_qp_res.h"
++#include "hpipm_d_dense_qp_sol.h"
+ // acados
+ #include "acados/utils/types.h"
+ 
+--- a/acados/dense_qp/dense_qp_common.c
++++ b/acados/dense_qp/dense_qp_common.c
+@@ -37,13 +37,13 @@
+ #include <string.h>
+ 
+ // hpipm
+-#include "hpipm/include/hpipm_d_dense_qp.h"
+-#include "hpipm/include/hpipm_d_dense_qp_ipm.h"
+-#include "hpipm/include/hpipm_d_dense_qp_kkt.h"
+-#include "hpipm/include/hpipm_d_dense_qp_res.h"
+-#include "hpipm/include/hpipm_d_dense_qp_seed.h"
+-#include "hpipm/include/hpipm_d_dense_qp_sol.h"
+-#include "hpipm/include/hpipm_d_dense_qp_dim.h"
++#include "hpipm_d_dense_qp.h"
++#include "hpipm_d_dense_qp_ipm.h"
++#include "hpipm_d_dense_qp_kkt.h"
++#include "hpipm_d_dense_qp_res.h"
++#include "hpipm_d_dense_qp_seed.h"
++#include "hpipm_d_dense_qp_sol.h"
++#include "hpipm_d_dense_qp_dim.h"
+ 
+ // blasfeo
+ #include "blasfeo_d_aux.h"
+--- a/examples/c/dense_qp.c
++++ b/examples/c/dense_qp.c
+@@ -41,7 +41,7 @@
+ #include "acados/utils/mem.h"
+ #include "acados_c/dense_qp_interface.h"
+ // hpipm
+-#include "hpipm/include/hpipm_d_dense_qp_kkt.h"
++#include "hpipm_d_dense_qp_kkt.h"
+ 
+ #include "blasfeo_d_aux_ext_dep.h"
+ 
+--- a/examples/c/no_interface_examples/mass_spring_model/mass_spring_qp.c
++++ b/examples/c/no_interface_examples/mass_spring_model/mass_spring_qp.c
+@@ -39,7 +39,7 @@
+ #include "blasfeo_i_aux_ext_dep.h"
+ 
+ // hpipm
+-#include "hpipm/include/hpipm_d_ocp_qp.h"
++#include "hpipm_d_ocp_qp.h"
+ 
+ // acados
+ #include "acados/utils/math.h"
+--- a/interfaces/acados_c/ocp_qp_interface.c
++++ b/interfaces/acados_c/ocp_qp_interface.c
+@@ -37,7 +37,7 @@
+ #include <string.h>
+ 
+ // hpipm
+-#include "hpipm/include/hpipm_d_ocp_qp_sol.h"
++#include "hpipm_d_ocp_qp_sol.h"
+ 
+ 
+ // acados
+--- a/interfaces/acados_c/ocp_nlp_interface.c
++++ b/interfaces/acados_c/ocp_nlp_interface.c
+@@ -66,8 +66,8 @@
+ #include "acados/utils/strsep.h"
+ 
+ // blasfeo
+-#include "blasfeo/include/blasfeo_d_blas.h"
+-#include "blasfeo/include/blasfeo_d_aux.h"
++#include "blasfeo_d_blas.h"
++#include "blasfeo_d_aux.h"
+ 
+ /************************************************
+ * plan
+--- a/interfaces/acados_c/dense_qp_interface.c
++++ b/interfaces/acados_c/dense_qp_interface.c
+@@ -37,7 +37,7 @@
+ #include <string.h>
+ 
+ // hpipm
+-#include "hpipm/include/hpipm_d_dense_qp.h"
++#include "hpipm_d_dense_qp.h"
+ 
+ // acados_c
+ 
+--- a/examples/c/regularization.c
++++ b/examples/c/regularization.c
+@@ -33,7 +33,7 @@
+ #include <stdlib.h>
+ 
+ // blasfeo
+-#include <blasfeo/include/blasfeo.h>
++#include <blasfeo.h>
+ 
+ // acados
+ #include <acados/ocp_nlp/ocp_nlp_reg_common.h>
+--- a/examples/c/no_interface_examples/sim_wt_model_no_interface.c
++++ b/examples/c/no_interface_examples/sim_wt_model_no_interface.c
+@@ -48,10 +48,10 @@
+ #include "examples/c/wt_model_nx3/wt_model.h"
+ 
+ // blasfeo
+-#include <blasfeo/include/blasfeo_d_aux.h>
+-#include <blasfeo/include/blasfeo_d_aux_ext_dep.h>
+-#include <blasfeo/include/blasfeo_v_aux_ext_dep.h>
+-#include <blasfeo/include/blasfeo_d_blas.h>
++#include <blasfeo_d_aux.h>
++#include <blasfeo_d_aux_ext_dep.h>
++#include <blasfeo_v_aux_ext_dep.h>
++#include <blasfeo_d_blas.h>
+ 
+ 
+ 

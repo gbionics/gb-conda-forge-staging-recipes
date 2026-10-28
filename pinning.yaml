@@ -1,0 +1,6 @@
+# Exact conda-forge base, completed migrations, then deliberate local overrides.
+conda_forge_pinning_version: 2026.10.14.02.57.01
+migrations: []
+pinning_overrides:
+  channel_sources: null
+  channel_targets: null

@@ -1,0 +1,8 @@
+.pixi/
+output/
+__pycache__/
+.pytest_cache/
+*.pyc
+.cache/
+
+artifacts/

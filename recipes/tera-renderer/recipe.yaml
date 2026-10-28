@@ -1,0 +1,33 @@
+schema_version: 1
+context:
+  version: '0.2.1'
+package:
+  name: tera-renderer
+  version: ${{ version }}
+source:
+  url: https://github.com/acados/tera_renderer/archive/a480a64b0a2cc15d4b1e6146e986388709ac0716.tar.gz
+  sha256: 092885d0b5d8dfe95d9acf23d38b6c9674dde0909d3d096e1285b7ef854f592a
+build:
+  number: 0
+  skip: not linux
+  script: build.sh
+requirements:
+  build:
+    - ${{ compiler('rust') }}
+    - ${{ compiler('c') }}
+    - ${{ stdlib('c') }}
+    - cargo-bundle-licenses
+tests:
+  - script:
+      - t_renderer --version
+      - echo '{{ answer }}' > template.txt
+      - echo '{"answer":42}' > context.json
+      - t_renderer '*.txt' template.txt context.json rendered.txt
+      - grep -x 42 rendered.txt
+about:
+  homepage: https://github.com/acados/tera_renderer
+  license: BSD-2-Clause
+  license_file: [LICENSE, THIRDPARTY.yml]
+  summary: Tera template renderer for acados code generation
+extra:
+  recipe-maintainers: [traversaro]

@@ -1,0 +1,164 @@
+schema_version: 1
+context:
+  version: 0.6.0
+  build_number: 4
+  # Match the HPIPM/BLASFEO layout family; see HPIPM's libblasfeo-abi workaround.
+  native_build: ${{ "*_30*" if x86_64 and (microarch_level | default(1) | int) == 3 else "*_10*" if x86_64 else "*" }}
+recipe:
+  name: acados
+  version: ${{ version }}
+source:
+  url: https://github.com/acados/acados/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: 01d8167cf101332e45ad6f995afa7b8953a3f3964d5f1472d5a28b44798f64eb
+  patches:
+    - system-dependencies.patch
+    - installed-layout.patch
+build:
+  number: ${{ build_number + (100 if (microarch_level | default(1) | int) == 1 else 300) if x86_64 else build_number }}
+  skip: not linux
+outputs:
+  - staging:
+      name: acados-build
+    build:
+      script:
+        file: build.sh
+        env:
+          ACADOS_VERSION: ${{ version }}
+    requirements:
+      build:
+        - ${{ compiler('c') }}
+        - ${{ compiler('cxx') }}
+        - ${{ stdlib('c') }}
+        - cmake
+        - ninja
+        - if: x86_64
+          then: x86_64-microarch-level ==${{ microarch_level | default(1) }}
+      host:
+        - libhpipm-devel * ${{ native_build }}
+        - libblasfeo * ${{ native_build }}
+        - if: x86_64
+          then: _x86_64-microarch-level ==${{ microarch_level | default(1) }}
+  - package:
+      name: libacados
+    inherit: acados-build
+    build:
+      files:
+        include:
+          - '**/*'
+        exclude:
+          - include/**
+          - lib/*.a
+          - lib/cmake/**
+          - lib/pkgconfig/**
+          - share/pkgconfig/**
+          - share/doc/**
+          - cmake/**
+    requirements:
+      run:
+        - libhpipm * ${{ native_build }}
+        - if: x86_64
+          then: _x86_64-microarch-level >=${{ microarch_level | default(1) }}
+      run_exports:
+        - ${{ pin_subpackage('libacados', upper_bound='x.x.x') }}
+        - libhpipm * ${{ native_build }}
+    tests:
+      - package_contents:
+          lib:
+            - acados
+          files:
+            - lib/link_libs.json
+            - lib/git_commit_hash
+  - package:
+      name: libacados-devel
+    inherit: acados-build
+    build:
+      files:
+        include:
+          - include/**
+          - lib/*.a
+          - lib/cmake/**
+          - lib/pkgconfig/**
+          - share/pkgconfig/**
+          - share/doc/**
+          - cmake/**
+    requirements:
+      host:
+        - libhpipm-devel * ${{ native_build }}
+        - if: x86_64
+          then: _x86_64-microarch-level ==${{ microarch_level | default(1) }}
+      run:
+        - ${{ pin_subpackage('libacados', exact=True) }}
+        - ${{ pin_compatible('libhpipm-devel', upper_bound='x.x.x') }}
+        - libhpipm-devel * ${{ native_build }}
+      run_exports:
+        - ${{ pin_subpackage('libacados', upper_bound='x.x.x') }}
+        - libhpipm * ${{ native_build }}
+    tests:
+      - package_contents:
+          include: [acados/ocp_nlp/ocp_nlp_common.h]
+          files:
+            - cmake/acadosConfig.cmake
+      - script: cmake-package-check acados --targets acados
+        requirements:
+          run:
+            - cmake-package-check
+            - ${{ compiler('c') }}
+            - ${{ compiler('cxx') }}
+  - package:
+      name: acados-template
+    build:
+      number: ${{ build_number }}
+      variant:
+        ignore_keys: [microarch_level]
+      noarch: python
+      script: build_python.sh
+    requirements:
+      host:
+        - python ${{ python_min }}.*
+        - pip
+        - setuptools
+      run:
+        - python >=${{ python_min }}
+        - ${{ pin_subpackage('libacados-devel', upper_bound='x.x.x') }}
+        - tera-renderer ==0.2.1
+        - numpy
+        - scipy
+        - casadi
+        - matplotlib-base
+        - cython
+        - deprecated
+        # The interface compiles generated C at runtime
+        - c-compiler
+        - cxx-compiler
+        - make
+        - cmake
+        - ninja
+    tests:
+      - python:
+          imports: [acados_template]
+          pip_check: true
+      - script:
+          - python integration_test.py
+        files:
+          recipe: [integration_test.py]
+        requirements:
+          run:
+            - python 3.13.*
+            - numpy >=2,<2.3
+      - script:
+          - python integration_test.py
+        files:
+          recipe: [integration_test.py]
+        requirements:
+          run:
+            - python 3.12.*
+            - numpy >=2,<2.3
+    about:
+      summary: Python solver generation and runtime compilation for acados
+about:
+  homepage: https://docs.acados.org
+  license: BSD-2-Clause
+  license_file: LICENSE
+  summary: Fast embedded optimal-control solvers, using system HPIPM and BLASFEO
+extra:
+  recipe-maintainers: [traversaro]
