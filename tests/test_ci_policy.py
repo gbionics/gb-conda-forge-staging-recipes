@@ -54,6 +54,7 @@ def test_upload_selects_channel_artifacts_and_excludes_failed_builds(tmp_path, m
     monkeypatch.setattr(subprocess, 'run', lambda args, **kwargs: calls.append(args))
     runpy.run_path(str(script), run_name='__main__')
     assert len(calls) == 1
+    assert calls[0][calls[0].index('--channel') + 1] == 'gbionics/conda-forge-staging'
     artifacts = [arg for arg in calls[0] if arg.endswith('.conda')]
     assert set(artifacts) == {
         'output/linux-64/test-1.0-0.conda', 'output/linux-aarch64/test-1.0-0.conda',
